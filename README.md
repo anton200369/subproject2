@@ -16,13 +16,19 @@ This subproject provides a **ready-to-run** computer vision pipeline that detect
    ```
 2. Run the extractor on a photo containing an ID card:
    ```bash
-   python -m id_card_detector.cli path/to/photo.jpg --output artifacts/
+   python -m id_card_detector.cli photo path/to/photo.jpg --output artifacts/
    ```
+   Or capture directly from a webcam (processes frames until a card is found):
+   ```bash
+   python -m id_card_detector.cli webcam --device 0 --output artifacts/ --max-frames 1200
+   ```
+   The webcam mode skips a few warmup frames and processes every Nth frame (default 2) so auto-exposure can stabilize.
 3. Review the outputs in the chosen `--output` directory:
    - `card.png`: normalized, perspective-corrected card
    - `card_binary.png`: high-contrast binary card for OCR
    - `portrait.png`: cropped face area (when detected)
    - `text_region_*.png`: cropped text bands ready for OCR/ML processing
+   - `debug_detection_frame.png` (webcam mode): the raw frame with the detected contour overlay
 
 ## Implementation notes
 - The detector operates at a configurable working width (default 900 px) to balance speed and precision.

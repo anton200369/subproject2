@@ -260,3 +260,67 @@ def process_image(image_path: Path, output_dir: Path) -> ExtractionResult:
     result = extractor.extract(warped)
     result.save(output_dir)
     return result
+
+
+def process_webcam(
+    output_dir: Path,
+    device_index: int = 0,
+    max_frames: int = 900,
+    frame_stride: int = 2,
+    warmup_frames: int = 5,
+) -> ExtractionResult:
+    """Capture frames from a webcam until an ID card is detected and extracted.
+
+    Args:
+        output_dir: Destination directory for extracted artifacts and the debug frame.
+        device_index: Index of the webcam passed to ``cv2.VideoCapture``.
+        max_frames: Maximum number of frames to read before giving up.
+        frame_stride: Only every Nth frame is processed to reduce CPU load.
+        warmup_frames: Frames to skip at the start to let the camera auto-expose.
+
+    Returns:
+        The :class:`ExtractionResult` for the first successfully detected card.
+
+    Raises:
+        RuntimeError: If the webcam cannot be opened or no card is found within
+            ``max_frames`` frames.
+    """
+
+    cap = cv2.VideoCapture(device_index)
+    if not cap.isOpened():
+        raise RuntimeError(f"Unable to open webcam at index {device_index}.")
+
+    detector = IdCardDetector()
+    extractor = ComponentExtractor()
+    last_error: Optional[Exception] = None
+
+    try:
+        frame_idx = 0
+        while frame_idx < max_frames:
+            grabbed, frame = cap.read()
+            if not grabbed or frame is None:
+                raise RuntimeError("Unable to read frame from webcam.")
+
+            frame_idx += 1
+            if frame_idx <= warmup_frames or frame_idx % frame_stride != 0:
+                continue
+
+            try:
+                contour = detector.detect(frame)
+                warped = detector.rectify(frame, contour)
+                result = extractor.extract(warped)
+                result.save(output_dir)
+
+                overlay = frame.copy()
+                cv2.drawContours(overlay, [contour.astype("int")], -1, (0, 255, 0), 2)
+                cv2.imwrite(str(output_dir / "debug_detection_frame.png"), overlay)
+                return result
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                continue
+    finally:
+        cap.release()
+
+    raise RuntimeError(
+        f"No ID card detected after {max_frames} frames from webcam {device_index}."
+    ) from last_error
