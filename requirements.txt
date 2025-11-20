@@ -1,5 +1,0 @@
-opencv-python>=4.9.0.80
-numpy>=1.24
-imutils>=0.5.4
-scikit-image>=0.22
-pytesseract>=0.3.10
